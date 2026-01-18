@@ -1,0 +1,38 @@
+name: 日次データ総合取得
+
+on:
+  schedule:
+    # 毎日 18:00 JST (= UTC 09:00)
+    - cron: '0 9 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  daily-harvest:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+        
+      - name: Python環境のセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: 依存関係のインストール
+        run: |
+          pip install -r requirements.txt
+          
+      - name: 日次データ総合取得スクリプトの実行
+        env:
+          EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
+        run: |
+          python src/daily_harvester.py
+          
+      - name: 変更のコミットとプッシュ
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/
+          git add data/master/stocks_master.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "自動更新: 日次データ $(date +'%Y-%m-%d')" && git push)
