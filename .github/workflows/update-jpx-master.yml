@@ -1,0 +1,35 @@
+name: 東証マスタ更新 (月次)
+
+on:
+  schedule:
+    # 毎月10日の午前9時 (JST = UTC+9, つまりUTC 0時)
+    - cron: '0 0 10 * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  update-jpx-master:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+        
+      - name: Python環境のセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: 依存関係のインストール
+        run: |
+          pip install -r requirements.txt
+          
+      - name: 東証マスタ更新スクリプトの実行
+        run: |
+          python src/update_stocks_from_jpx.py
+          
+      - name: 変更のコミットとプッシュ
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/master/stocks_master.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "自動更新: 東証マスタ $(date +'%Y-%m-%d')" && git push)
