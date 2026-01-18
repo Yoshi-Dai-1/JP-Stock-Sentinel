@@ -1,0 +1,13 @@
+# 秘密の情報
+.env
+
+# Pythonのキャッシュ
+__pycache__/
+*.pyc
+
+# 一時的なダウンロードフォルダ
+downloads/
+extracted_xbrl/
+
+# OSのゴミファイル
+.DS_Store
