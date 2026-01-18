@@ -6,6 +6,9 @@ on:
     - cron: '0 0 10 * *'
   workflow_dispatch: # 手動実行も可能
 
+permissions:
+  contents: write
+
 jobs:
   update-jpx-master:
     runs-on: ubuntu-latest
