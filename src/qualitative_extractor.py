@@ -356,55 +356,71 @@ class QualitativeDataExtractor:
         
         info_file = ticker_dir / "info.json"
         
-        # 新しいデータエントリを作成
-        new_entry = {
-            "fiscal_year_end": date,
-            "extracted_date": datetime.now().strftime("%Y-%m-%d"),
-        }
-        
-        # 抽出された定性情報を追加
-        for key, value in results.items():
-            if value and len(str(value)) >= 50:
-                new_entry[key] = value
-        
-        # 既存のJSONファイルを読み込み
+        # 既存のJSONファイルを読み込み、または初期化
         if info_file.exists():
             try:
                 with open(info_file, "r", encoding="utf-8") as f:
-                    existing_data = json.load(f)
-            except json.JSONDecodeError:
-                # JSONが壊れている場合は新規作成
-                existing_data = {
-                    "ticker": ticker,
-                    "last_updated": datetime.now().strftime("%Y-%m-%d"),
-                    "qualitative_data": []
-                }
+                    data = json.load(f)
+            except (json.JSONDecodeError, Exception):
+                data = {"ticker": ticker}
         else:
-            # 新規作成
-            existing_data = {
-                "ticker": ticker,
-                "last_updated": datetime.now().strftime("%Y-%m-%d"),
-                "qualitative_data": []
+            data = {"ticker": ticker}
+        
+        # 1. 最新上書き項目（常にトップレベルに最新を保持）
+        # 事業の内容
+        if "事業の内容" in results:
+            data["business_description"] = results["事業の内容"]
+        # 沿革
+        if "沿革" in results:
+            data["history_summary"] = results["沿革"]
+        
+        # 2. 強制履歴追記項目（配列で履歴を保持）
+        if "dividend_policy_history" not in data:
+            data["dividend_policy_history"] = []
+        if "benefits_history" not in data:
+            data["benefits_history"] = []
+            
+        # 配当方針の処理
+        if "配当政策" in results:
+            new_div = {
+                "fiscal_year_end": date,
+                "report_date": datetime.now().strftime("%Y-%m-%d"),
+                "text": results["配当政策"]
             }
+            # 重複チェック（同じ会計年度のデータがあれば追記しない）
+            if not any(entry.get("fiscal_year_end") == date for entry in data["dividend_policy_history"]):
+                data["dividend_policy_history"].insert(0, new_div) # 最新を先頭に
+            else:
+                # 既存エントリの更新（必要に応じて最新日付に更新）
+                for entry in data["dividend_policy_history"]:
+                    if entry.get("fiscal_year_end") == date:
+                        entry["text"] = results["配当政策"]
+                        entry["report_date"] = datetime.now().strftime("%Y-%m-%d")
+                        break
+
+        # 株主に対する特典の処理
+        if "株主に対する特典" in results:
+            new_ben = {
+                "fiscal_year_end": date,
+                "report_date": datetime.now().strftime("%Y-%m-%d"),
+                "text": results["株主に対する特典"]
+            }
+            # 重複チェック
+            if not any(entry.get("fiscal_year_end") == date for entry in data["benefits_history"]):
+                data["benefits_history"].insert(0, new_ben) # 最新を先頭に
+            else:
+                for entry in data["benefits_history"]:
+                    if entry.get("fiscal_year_end") == date:
+                        entry["text"] = results["株主に対する特典"]
+                        entry["report_date"] = datetime.now().strftime("%Y-%m-%d")
+                        break
         
-        # 同じ会計年度のデータがあれば更新、なければ先頭に追加
-        updated = False
-        for i, entry in enumerate(existing_data["qualitative_data"]):
-            if entry.get("fiscal_year_end") == date:
-                existing_data["qualitative_data"][i] = new_entry
-                updated = True
-                break
+        # 最終更新日の更新
+        data["last_updated"] = datetime.now().strftime("%Y-%m-%d")
         
-        if not updated:
-            # 最新データを先頭に追加
-            existing_data["qualitative_data"].insert(0, new_entry)
-        
-        # last_updatedを更新
-        existing_data["last_updated"] = datetime.now().strftime("%Y-%m-%d")
-        
-        # JSONファイルに保存
+        # 保存
         with open(info_file, "w", encoding="utf-8") as f:
-            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
         print(f"  [保存完了] {info_file}")
 

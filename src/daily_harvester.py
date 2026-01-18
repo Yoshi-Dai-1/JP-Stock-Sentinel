@@ -187,17 +187,28 @@ def fetch_quarterly_financials(ticker_code):
         quarterly = ticker.quarterly_financials
         
         if quarterly is None or quarterly.empty:
+            print(f"  [情報] {ticker_code}: 財務データなし")
             return None
         
         # 転置して日付を行に
         quarterly = quarterly.T
+        
+        # インデックス（日付）に名前がない場合やDateでない場合に対応
         quarterly = quarterly.reset_index()
         quarterly = quarterly.rename(columns={'index': 'Date'})
         
+        # 全ての項目がNaNの列（決算期）があれば削除するが、
+        # 一部の項目でも値があれば保持する
+        quarterly = quarterly.dropna(how='all', subset=[c for c in quarterly.columns if c != 'Date'])
+        
+        if quarterly.empty:
+            print(f"  [情報] {ticker_code}: 有効な財務項目なし")
+            return None
+            
         return quarterly
     
     except Exception as e:
-        print(f"  [エラー] 決算データ取得失敗: {e}")
+        print(f"  [警告] 決算データ取得失敗 ({ticker_code}): {e}")
         return None
 
 
@@ -228,12 +239,43 @@ def save_price_data(ticker_code, price_data, overwrite=False):
 
 
 def save_financials_data(ticker_code, financials_data):
-    """決算データをCSVに保存"""
+    """
+    決算データをCSVに保存（マージ追記）
+    
+    Args:
+        ticker_code: ティッカーコード
+        financials_data: 四半期決算データ
+    """
     ticker_dir = DATA_DIR / ticker_code
     ticker_dir.mkdir(parents=True, exist_ok=True)
     
     financials_file = ticker_dir / "financials.csv"
-    financials_data.to_csv(financials_file, index=False, encoding='utf-8-sig')
+    
+    if financials_file.exists():
+        try:
+            # 既存データを読み込み
+            existing_df = pd.read_csv(financials_file)
+            
+            # 新旧データを結合
+            combined = pd.concat([existing_df, financials_data], ignore_index=True)
+            
+            # 日付カラムで重複を削除（新しい方を残す）
+            if 'Date' in combined.columns:
+                # yfから来るDateは文字列の場合もあればTimestampの場合もあるため統一
+                combined['Date'] = pd.to_datetime(combined['Date'])
+                combined = combined.drop_duplicates(subset=['Date'], keep='last')
+                combined = combined.sort_values('Date', ascending=False) # 最新を上に
+                
+                # 文字列に戻して保存
+                combined['Date'] = combined['Date'].dt.strftime('%Y-%m-%d')
+            
+            combined.to_csv(financials_file, index=False, encoding='utf-8-sig')
+        except Exception as e:
+            print(f"  [警告] 決算データマージ失敗: {e}")
+            financials_data.to_csv(financials_file, index=False, encoding='utf-8-sig')
+    else:
+        # 新規作成
+        financials_data.to_csv(financials_file, index=False, encoding='utf-8-sig')
 
 
 def fetch_qualitative_info(ticker_code, api_key):
