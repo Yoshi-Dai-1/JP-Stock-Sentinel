@@ -1,10 +1,12 @@
 {
   "ticker": "6273.T",
-  "last_updated": "2026-01-18",
+  "last_updated": "2026-01-24",
   "qualitative_data": [
     {
       "fiscal_year_end": null,
       "extracted_date": "2026-01-18"
     }
-  ]
+  ],
+  "dividend_policy_history": [],
+  "benefits_history": []
 }
