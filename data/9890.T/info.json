@@ -1,10 +1,12 @@
 {
   "ticker": "9890.T",
-  "last_updated": "2026-01-18",
+  "last_updated": "2026-01-26",
   "qualitative_data": [
     {
       "fiscal_year_end": null,
       "extracted_date": "2026-01-18"
     }
-  ]
+  ],
+  "dividend_policy_history": [],
+  "benefits_history": []
 }
